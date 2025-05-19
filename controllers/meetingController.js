@@ -17,7 +17,7 @@ exports.createMeeting = async (req, res) => {
 // API to get a list of all meetings
 exports.getAllMeetings = async (req, res) => {
     try {
-        const meetings = await Meeting.find({ userId: req.user._id });
+        const meetings = await Meeting.find({ userId: req.user._id }).sort({ createdAt: -1 });
         res.json({ success: true, meetings });
     } catch (err) {
         console.error("Fetch meetings error:", err);

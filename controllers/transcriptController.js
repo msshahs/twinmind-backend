@@ -4,11 +4,12 @@ const path = require("path");
 const ffmpeg = require("fluent-ffmpeg");
 const ffmpegPath = require("ffmpeg-static");
 const Meeting = require("../models/Meeting");
+const { generateMeetingTitle } = require("../utils/generateTitle");
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-// Imp API - transforms blob audio into text with whisper model of OpenAI chunk wise every 30 seconds
+
 exports.uploadAudioAndTranscribe = async (req, res) => {
     try {
         const { meetingId } = req.body;
@@ -47,13 +48,26 @@ exports.uploadAudioAndTranscribe = async (req, res) => {
         const line = transcription;
         if (line) {
             meeting.transcript = (meeting.transcript || "") + `\n${line}`;
+
+            if (meeting.title === "Untitled Meeting") {
+                try {
+                    const title = await generateMeetingTitle(meeting.transcript);
+                    if (title) {
+                        meeting.title = title;
+                        console.log(title);
+                    }
+                } catch (titleErr) {
+                    console.warn("⚠️ Title generation failed:", titleErr.message);
+                }
+            }
+
             await meeting.save();
         }
 
         fs.unlinkSync(webmPath);
         fs.unlinkSync(mp3Path);
 
-        res.json({ success: true, transcript: line });
+        res.json({ success: true, transcript: line, title: meeting.title });
     } catch (err) {
         console.error("Upload error:", err.response?.data || err.message);
         res.status(500).json({ success: false, error: "Transcription failed" });
